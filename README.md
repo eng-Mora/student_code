@@ -61,7 +61,7 @@
 <body>
     <div class="container">
         <h1>بحث عن الطلاب</h1>
-        <input type="text" id="searchInput" placeholder="أدخل الاسم أو الكود">
+        <input type="text" id="searchInput" placeholder="أدخل الاسم الكامل، الاسم الأول أو الكود">
         <button onclick="search()">بحث</button>
         <p class="result" id="result"></p>
     </div>
@@ -69,21 +69,21 @@
     <script>
         const students = {
             "49696": "ادم عمرو",
-            "81659": "نور عبد الرحمن",
-            "39639": "ايمان",
-            "29474": "محمد ايهاب عبد الفتاح",
+            "81659": "نور عبدالرحمن",
+            "39639": "ايمان محمد",
+            "29474": "محمد ايهاب عبدالفتاح",
             "86074": "نيفين حمدي محمد",
             "30693": "رحمه ماجد",
             "50808": "احمد حسين",
             "84536": "زياد خالد",
-            "41596": "نورالدين هيثم",
+            "41596": "نور الدين هيثم",
             "11633": "يوسف ايمن ابوضيف",
             "41715": "احمد حسام",
-            "58471": "عبد الرحمن شعبان",
+            "58471": "عبدالرحمن شعبان",
             "18054": "حنين السيد سليمان",
             "20321": "بسنت محمد",
             "52182": "عمر وليد جمال",
-            "47916": "عبد الله احمد محمود",
+            "47916": "عبدالله احمد محمود",
             "35365": "حاتم امين محمد",
             "37144": "عبدالله احمد صلاح",
             "10781": "ياسمين السيد",
@@ -106,7 +106,7 @@
             "53336": "مريم اشرف",
             "48389": "سندس صلاح",
             "28354": "مريم احمد",
-            "75539": "جنة طارق",
+            "75539": "جنى طارق",
             "58951": "سارة عماد",
             "89089": "جنة محمد",
             "41292": "مريم سعيد",
@@ -119,18 +119,18 @@
             "16075": "امنية ايمن",
             "69897": "اروى احمد",
             "86284": "حبيبة شعبان",
-            "80650": "احمد أيمن رافت",
+            "80650": "احمد ايمن رافت",
             "23069": "يوسف حسن محمد",
-            "66908": "احمد محمد عبد اللطيف",
+            "66908": "احمد محمد عبداللطيف",
             "69756": "احمد ياسر",
             "70126": "مازن محمد",
             "73057": "عمر هاني",
-            "63855": "عبد الرحمن محمود عبد الحسيب",
+            "63855": "عبدالرحمن محمود عبدالحسيب",
             "28411": "رحيق سيد",
             "48261": "زياد احمد يوسف",
-            "75934": "جنى عبد العليم",
+            "75934": "جنى عبدالعليم",
             "21687": "روان ايهاب",
-            "39472": "محمد عبد العظيم",
+            "39472": "محمد عبدالعظيم",
             "58210": "سلمى وائل",
             "70493": "فيروز محمد",
             "13856": "نورهان محمد",
@@ -142,12 +142,23 @@
         function search() {
             const input = document.getElementById("searchInput").value.trim();
             const resultElement = document.getElementById("result");
+            let results = [];
 
+            // Check if input matches a code
             if (students[input]) {
-                resultElement.textContent = `الاسم: ${students[input]}`;
-            } else if (Object.values(students).includes(input)) {
-                const code = Object.keys(students).find(key => students[key] === input);
-                resultElement.textContent = `الكود: ${code}`;
+                results.push(`الكود: ${input} - الاسم: ${students[input]}`);
+            } else {
+                // Search by full name or first name
+                for (const [code, name] of Object.entries(students)) {
+                    const firstName = name.split(' ')[0]; // Get the first name only
+                    if (name === input || firstName === input) {
+                        results.push(`الكود: ${code} - الاسم: ${name}`);
+                    }
+                }
+            }
+
+            if (results.length > 0) {
+                resultElement.innerHTML = results.join("<br>");
             } else {
                 resultElement.textContent = "لا يوجد طالب بهذا الاسم أو الكود.";
             }
