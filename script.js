@@ -107,19 +107,41 @@ document.addEventListener('DOMContentLoaded', async function () {
     async function getReviewByCode(code) {
         try {
             const snap = await get(ref(db, 'reviews'));
-            if (!snap || !snap.exists()) return null;
+            if (!snap.exists()) return null;
+            
             const reviews = snap.val();
-            if (!reviews || typeof reviews !== 'object') return null;
-            for (const [rcId, rc] of Object.entries(reviews)) {
-                if (!rc || !rc.accessCodes) continue;
-                const accessCodes = Object.values(rc.accessCodes);
-                if (accessCodes.map(String).includes(String(code))) {
-                    return { rcId, code: rc.code || rcId, desc: rc.desc || '', videos: rc.videos || {} };
+            
+            // Loop through each review in the reviews object
+            for (const reviewId in reviews) {
+                const review = reviews[reviewId];
+                
+                // Skip if review doesn't have accessCodes
+                if (!review || !review.accessCodes) continue;
+                
+                // Handle accessCodes whether it's an object or array
+                let accessCodesArray = [];
+                
+                if (Array.isArray(review.accessCodes)) {
+                    // If it's already an array
+                    accessCodesArray = review.accessCodes;
+                } else if (typeof review.accessCodes === 'object') {
+                    // If it's an object, convert to array
+                    accessCodesArray = Object.values(review.accessCodes);
+                }
+                
+                // Check if the code exists in the access codes
+                if (accessCodesArray.includes(code)) {
+                    return {
+                        rcId: reviewId,
+                        code: review.code || reviewId,
+                        desc: review.desc || '',
+                        videos: review.videos || {}
+                    };
                 }
             }
             return null;
         } catch(e) {
-            console.warn('getReviewByCode error (non-blocking):', e);
+            console.warn('getReviewByCode error:', e);
             return null;
         }
     }
@@ -129,10 +151,12 @@ document.addEventListener('DOMContentLoaded', async function () {
         // ── Auto-login من URL parameter (?username=XXXX) ──────
         const urlParams  = new URLSearchParams(window.location.search);
         const urlUser    = urlParams.get('username');
+        
         if (urlUser) {
             // امسح الـ param من الرابط بدون reload
             const cleanUrl = window.location.pathname;
             window.history.replaceState({}, '', cleanUrl);
+            
             // جرب student أولاً
             const studentFromUrl = await getStudent(urlUser);
             if (studentFromUrl && studentFromUrl.videoCode && !studentFromUrl.banned) {
@@ -146,9 +170,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 showMain();
                 return;
             }
+            
             // جرب review code
             let rvUrl = null;
             try { rvUrl = await getReviewByCode(urlUser); } catch(e) { rvUrl = null; }
+            
             if (rvUrl) {
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('username', urlUser);
@@ -157,22 +183,26 @@ document.addEventListener('DOMContentLoaded', async function () {
                 showMain();
                 return;
             }
+            
             // الكود مش موجود — وريه رسالة خطأ في اللوجين
             showLogin();
             document.getElementById('errorMessage').style.color = '#dc3545';
             document.getElementById('errorMessage').textContent  = '❌ الكود مش موجود، تواصل مع المشرف.';
             return;
         }
+        
         // ─────────────────────────────────────────────────────
         const loggedIn  = localStorage.getItem('isLoggedIn');
         const username  = localStorage.getItem('username');
         const loginType = localStorage.getItem('loginType'); // 'student' or 'review'
+        
         if (loggedIn === 'true' && username) {
             if (loginType === 'review') {
                 let rv = null;
                 try { rv = await getReviewByCode(username); } catch(e) { rv = null; }
                 if (rv) { await loadReviewContent(rv); showMain(); return; }
             }
+            
             const student = await getStudent(username);
             if (student && student.videoCode) {
                 await loadVideoContent(student.videoCode, username, student);
@@ -189,9 +219,10 @@ document.addEventListener('DOMContentLoaded', async function () {
         errEl.style.color   = '#888';
         errEl.textContent   = '⏳ جاري التحقق...';
 
-        // 1. Check review codes first (non-blocking — if fails, continue to student check)
+        // 1. Check review codes first
         let rv = null;
         try { rv = await getReviewByCode(username); } catch(e) { rv = null; }
+        
         if (rv) {
             errEl.textContent = '';
             localStorage.setItem('isLoggedIn', 'true');
@@ -210,11 +241,13 @@ document.addEventListener('DOMContentLoaded', async function () {
             localStorage.setItem('isLoggedIn', 'true');
             localStorage.setItem('username', username);
             localStorage.setItem('loginType', 'student');
+            
             // ── سجّل الدخول ──────────────────────────────────────
             const now = Date.now();
             set(ref(db, `students/${username}/lastSeen`), now);
             push(ref(db, `loginLogs/${username}`), { at: now, name: student.name });
             // ─────────────────────────────────────────────────────
+            
             await loadVideoContent(student.videoCode, username, student);
             showMain();
             videoContainer.scrollIntoView({ behavior: 'smooth' });
@@ -236,7 +269,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             </div>
         </div>`;
 
-        html += '<div class="video-menu"><select class="video-selector" onchange="window._showVideo(this.value)">';
+        html += '<div class="video-menu"><select class="video-selector" onchange="window._showReviewVideo(this.value)">';
         html += '<option value="">اختر الفيديو...</option>';
         sorted.forEach((v,i) => {
             html += `<option value="rv_${i}">${v.title}</option>`;
@@ -265,11 +298,14 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         videoContainer.innerHTML = html;
 
-        window._showVideo = function(id) {
+        window._showReviewVideo = function(id) {
             if (!id) return;
             videoContainer.querySelectorAll('.video').forEach(v => v.style.display='none');
             const t = document.getElementById(id);
-            if (t) { t.style.display='block'; if(window.innerWidth<=768) t.scrollIntoView({behavior:'smooth',block:'center'}); }
+            if (t) { 
+                t.style.display='block'; 
+                if(window.innerWidth<=768) t.scrollIntoView({behavior:'smooth',block:'center'}); 
+            }
         };
     }
 
@@ -304,13 +340,15 @@ document.addEventListener('DOMContentLoaded', async function () {
         const isActive = chNum === 1 ? 'active' : '';
         let html = `<div id="chapter-${chNum}" class="chapter-content ${isActive}">`;
         html += `<h2 class="chapter-title">${chName}</h2>`;
-        // build options with data-title for meta passing
+        
         html += '<div class="video-menu"><select class="video-selector" onchange="window._showVideo(this.value, this.options[this.selectedIndex].dataset)">';
         html += `<option value="">${code.startsWith('CODE1') || code === 'CODE8' || code === 'CODE11' ? 'اختر الفيديو...' : 'Select video...'}</option>`;
+        
         sorted.forEach(([vid, v]) => {
             html += `<option value="v_${chNum}_${vid}" data-video-code="${code}" data-chapter-num="${chNum}" data-chapter-name="${chName}" data-video-title="${v.title}" data-student-name="">${v.title}</option>`;
         });
         html += '</select></div>';
+        
         sorted.forEach(([vid, v]) => {
             html += buildVideoCard(v, `v_${chNum}_${vid}`);
         });
@@ -321,6 +359,7 @@ document.addEventListener('DOMContentLoaded', async function () {
     // ── showVideo ─────────────────────────────────────────────
     window._showVideo = function(id, dataset) {
         if (!id) return;
+        
         // ── سجّل المشاهدة ─────────────────────────────────────
         const loggedUser = localStorage.getItem('username');
         if (loggedUser && dataset && dataset.videoCode) {
@@ -335,10 +374,11 @@ document.addEventListener('DOMContentLoaded', async function () {
                 at          : now
             };
             push(ref(db, `watchLogs`), meta);
+            
             // تحديث عداد المشاهدات على الفيديو
             const vidKey = `videoStats/${meta.videoCode}_ch${meta.chapterNum}_${id}`;
             get(ref(db, vidKey)).then(snap => {
-                const prev = snap.exists() ? (snap.val() || {}) : {};
+                const prev = snap.exists() ? snap.val() : {};
                 set(ref(db, vidKey), {
                     title      : meta.videoTitle,
                     code       : meta.videoCode,
@@ -349,11 +389,13 @@ document.addEventListener('DOMContentLoaded', async function () {
                 });
             });
         }
+        
         // ─────────────────────────────────────────────────────
         const chNum = id.split('_')[1];
         // hide all videos in same chapter
         const chEl = document.getElementById('chapter-' + chNum);
         if (chEl) chEl.querySelectorAll('.video').forEach(v => v.style.display = 'none');
+        
         const t = document.getElementById(id);
         if (t) {
             t.style.display = 'block';
@@ -366,13 +408,17 @@ document.addEventListener('DOMContentLoaded', async function () {
         const scope = document.querySelector('.branch-content[style*="display: block"]')
                    || document.querySelector('.branch-content[style*="display:block"]')
                    || videoContainer;
+        
         scope.querySelectorAll('.chapter-content').forEach(c => c.classList.remove('active'));
         scope.querySelectorAll('.chapter-btn').forEach(b => b.classList.remove('active'));
+        
         const chEl = scope.querySelector('#chapter-' + num);
         if (chEl) chEl.classList.add('active');
-        const btns = scope.querySelectorAll('.chapter-btn');
+        
         // find btn by index matching num
-        btns.forEach(b => { if (b.getAttribute('onclick') === `switchChapter(${num})`) b.classList.add('active'); });
+        scope.querySelectorAll('.chapter-btn').forEach(b => { 
+            if (b.getAttribute('onclick') === `switchChapter(${num})`) b.classList.add('active'); 
+        });
     };
 
     // ── loadVideoContent ──────────────────────────────────────
@@ -500,6 +546,7 @@ document.addEventListener('DOMContentLoaded', async function () {
             e.stopPropagation();
             document.getElementById('profileInfo')?.classList.toggle('active');
         });
+        
         document.addEventListener('click', () => document.getElementById('profileInfo')?.classList.remove('active'));
 
         // 7. Ramadan badge
@@ -511,12 +558,28 @@ document.addEventListener('DOMContentLoaded', async function () {
                         <i class="fas fa-envelope"></i> Ramadan Kareem Message
                     </div>
                 </div>`);
+            
             const mm = document.getElementById('messageModal');
             const mo = document.getElementById('messageOverlay');
             const cm = document.getElementById('closeModal');
-            document.getElementById('messageBadge')?.addEventListener('click', () => { mm.style.display='block'; mo.style.display='block'; document.body.style.overflow='hidden'; });
-            cm?.addEventListener('click',  () => { mm.style.display='none'; mo.style.display='none'; document.body.style.overflow='auto'; });
-            mo?.addEventListener('click',  () => { mm.style.display='none'; mo.style.display='none'; document.body.style.overflow='auto'; });
+            
+            document.getElementById('messageBadge')?.addEventListener('click', () => { 
+                mm.style.display='block'; 
+                mo.style.display='block'; 
+                document.body.style.overflow='hidden'; 
+            });
+            
+            cm?.addEventListener('click',  () => { 
+                mm.style.display='none'; 
+                mo.style.display='none'; 
+                document.body.style.overflow='auto'; 
+            });
+            
+            mo?.addEventListener('click',  () => { 
+                mm.style.display='none'; 
+                mo.style.display='none'; 
+                document.body.style.overflow='auto'; 
+            });
         }
     }
 
